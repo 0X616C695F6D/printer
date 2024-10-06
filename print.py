@@ -12,6 +12,8 @@ from datetime import datetime
 
 WSB_BASE_URL = "https://tradestie.com/api/v1/apps/reddit?date="
 
+# Pull JSON from tradestie and output only top 5 bullish and bearish stocks
+# This API displays the sentiment of stocks in WSB for the current date
 def fetch_wsb_stocks():
     current_date = datetime.now().strftime('%Y-%m-%d')
     wsb_url = f"{WSB_BASE_URL}{current_date}"
@@ -40,3 +42,26 @@ def format_stocks(bulls, bears, width=78):
         result += bulls_txt.ljust(col_width) + bears_txt.ljust(col_width) + '\n'
     
     return result
+
+
+# Pull subreddit posts and print the top headlines
+# Use this as an additional community-based news source, not for anything important
+# I.e. reddit is a bunch of bs~
+def fetch_sub_reddits(subreddit):
+    url = f"https://www.reddit.com/r/{subreddit}/top/.json"
+    headers = {'User-agent': 'Mozilla/5.0'}
+    
+    response = requests.get(url, headers=headers, params={'limit': 5})
+    data = response.json()
+
+    top_posts = [post['data']['title'] for post in data['data']['children']]
+
+    return top_posts
+
+def format_reddit(subreddit):
+    top_posts = fetch_sub_reddits(subreddit)
+
+    reddit_report = f"--- r/{subreddit} ---\n\n"
+    for i, post in enumerate(top_posts, 1):
+        reddit_report += f"{i}. {post}\n"
+    print(reddit_report)
