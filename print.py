@@ -10,6 +10,7 @@ import requests
 from datetime import datetime
 
 
+OUTPUT_PATH  = '/home/ash/.f/day_report.txt'
 WSB_BASE_URL = "https://tradestie.com/api/v1/apps/reddit?date="
 
 # Pull JSON from tradestie and output only top 5 bullish and bearish stocks
@@ -17,7 +18,7 @@ WSB_BASE_URL = "https://tradestie.com/api/v1/apps/reddit?date="
 def fetch_wsb_stocks():
     current_date = datetime.now().strftime('%Y-%m-%d')
     wsb_url = f"{WSB_BASE_URL}{current_date}"
-    print(wsb_url)
+    #print(wsb_url)
 
     response = requests.get(wsb_url)
     stock_data = response.json()
@@ -64,4 +65,21 @@ def format_reddit(subreddit):
     reddit_report = f"--- r/{subreddit} ---\n\n"
     for i, post in enumerate(top_posts, 1):
         reddit_report += f"{i}. {post}\n"
-    print(reddit_report)
+    return reddit_report
+
+
+if __name__ == "__main__":
+    stocks = f'--- Stocks ---\n\n'
+    bulls, bears  = fetch_wsb_stocks()
+    stocks += format_stocks(bulls, bears)
+    #print(stocks)
+
+    reddit = ''
+    subreddits = ['wallstreetbets', 'worldnews', 'Futurology', 'technews']
+    for subs in subreddits:
+        reddit += format_reddit(subs) + '\n'
+    #print(reddit)
+
+    with open(OUTPUT_PATH, 'w') as file:
+        file.write(stocks + '\n')
+        file.write(reddit)
