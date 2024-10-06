@@ -6,12 +6,15 @@ date:        2024-05-10 11:33AM
 description: read information from API endpoints and format to a printable page
 """
 
+import time
 import requests
-from datetime import datetime
+import xml.etree.ElementTree as ET
+from datetime import datetime, timedelta
 
 
 OUTPUT_PATH  = '/home/ash/.f/day_report.txt'
 WSB_BASE_URL = "https://tradestie.com/api/v1/apps/reddit?date="
+ARXIV_URL    = "http://export.arxiv.org/api/query"
 
 # Pull JSON from tradestie and output only top 5 bullish and bearish stocks
 # This API displays the sentiment of stocks in WSB for the current date
@@ -68,6 +71,39 @@ def format_reddit(subreddit):
     return reddit_report
 
 
+# Arxiv papers. The output is Atom format.
+# Filter gives only 3 papers of recent publishing dates.
+# Could use more work to pick good papers, but okay for now.
+def fetch_arxiv(category, date):
+    formatted_date = date.strftime('%Y-%m-%d')
+
+    params = {
+        'search_query': f'cat:{category}',
+        'start':'0',
+        'max_results':'3',
+        'sortBy':'submittedDate',
+        'sortOrder':'descending'
+    }
+
+    response = requests.get(ARXIV_URL, params=params)
+    root = ET.fromstring(response.content)
+
+    papers = []
+    for entry in root.findall('{http://www.w3.org/2005/Atom}entry'):
+        title = entry.find('{http://www.w3.org/2005/Atom}title').text.strip()
+        authors = [author.find('{http://www.w3.org/2005/Atom}name').text.strip() for author in entry.findall('{http://www.w3.org/2005/Atom}author')]
+        published_date = entry.find('{http://www.w3.org/2005/Atom}published').text.strip()
+        summary = entry.find('{http://www.w3.org/2005/Atom}summary').text.strip()
+
+        papers.append({
+            'title': title,
+            'authors': authors,
+            'published_date':published_date,
+            'summary': summary,
+        })
+    return papers
+
+
 if __name__ == "__main__":
     stocks = f'--- Stocks ---\n\n'
     bulls, bears  = fetch_wsb_stocks()
@@ -80,6 +116,25 @@ if __name__ == "__main__":
         reddit += format_reddit(subs) + '\n'
     #print(reddit)
 
+    # arxiv taxonomies can be found here: https://arxiv.org/category_taxonomy
+    # API requests are rate limited; for safety use 10 second timeouts
+    yesterday = datetime.now() - timedelta(days=1)
+    arxiv  = fetch_arxiv('cs.AI', yesterday.date()) # Artifical intelligence
+    time.sleep(10)
+    arxiv += fetch_arxiv('cs.CR', yesterday.date()) # Cryptography and security
+    time.sleep(10)
+    arxiv += fetch_arxiv('eess.SP', yesterday.date()) # Signal processing
+
+    arxiv_out = "--- Arxiv ---\n\n"
+    for i, paper in enumerate(arxiv):
+        arxiv_out += f"Title: {paper['title']}\n"
+        arxiv_out += f"Authors: {paper['authors']}\n"
+        arxiv_out += f"Published date: {paper['published_date']}\n\n"
+        arxiv_out += f"{paper['summary']}\n\n"
+
+    print(arxiv_out)
+
     with open(OUTPUT_PATH, 'w') as file:
         file.write(stocks + '\n')
         file.write(reddit)
+        file.write(arxiv_out)
