@@ -1,45 +1,34 @@
-from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, Paragraph, Image as RLImage, Spacer, FrameBreak
+from reportlab.platypus import Paragraph, Image as RLImage, Spacer
+from reportlab.platypus import BaseDocTemplate, PageTemplate, Frame, FrameBreak
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-import pyphen
-from io import BytesIO
-from PIL import Image as PILImage
+import datetime
+import io
 
 pdfmetrics.registerFont(TTFont('D-DIN', '/home/ash/.fonts/D-DIN.ttf'))
+pdfmetrics.registerFont(TTFont('D-DIN-Bold', '/home/ash/.fonts/D-DIN-Bold.ttf'))
 
 def create_newspaper_pdf(content: dict, output_path: str):
     """
-    Generates a U.S. Letter-sized PDF with a two-column layout.
-    
-    Parameters:
-        content (dict): A dictionary where keys represent article sections 
-            (e.g., 'stock', 'astronomy', 'tech') and values are dictionaries containing:
-                - 'headline': Article headline
-                - 'summary': Summarized text
-                - 'image': Processed image object (PIL Image) or image file path/URL.
-        output_path (str): Path where the generated PDF will be saved.
+    Generates a 2-column PDF. If there's a black & white NASA image, it is placed at the top
+    of the first column at the correct single-column width.
     """
-    # Page settings
-    page_width, page_height = letter  # 612 x 792 points
+    page_width, page_height = letter
     margin = 0.5 * inch
-    gutter = 0.25 * inch
+    gutter = 0.15 * inch
     column_width = (page_width - 2 * margin - gutter) / 2
     column_height = page_height - 2 * margin
 
-    # Define two frames (columns)
+    # Two-column frames
     frame1 = Frame(margin, margin, column_width, column_height, id='col1')
     frame2 = Frame(margin + column_width + gutter, margin, column_width, column_height, id='col2')
     
-    # Create a page template with two frames.
     template = PageTemplate(id='TwoCol', frames=[frame1, frame2])
-    
-    # Create the document.
     doc = BaseDocTemplate(output_path, pagesize=letter, pageTemplates=[template])
     
-    # Define text styles.
     styles = getSampleStyleSheet()
     headline_style = ParagraphStyle(
         'Headline',
@@ -58,60 +47,66 @@ def create_newspaper_pdf(content: dict, output_path: str):
         spaceAfter=12,
     )
     
-    # Build the list of flowables.
     flowables = []
     
-    from datetime import datetime
-
-    # Newspaper Title and Date
+    # 1) Newspaper Title & Date
+    current_date = datetime.datetime.now().strftime("%B %d, %Y")
     newspaper_title = "Morning Times"
-    current_date = datetime.now().strftime("%B %d, %Y")
-    title_paragraph = Paragraph(
+    title_para = Paragraph(
         f"<para align='center'><b>{newspaper_title}</b><br/><font size=10>{current_date}</font></para>",
         ParagraphStyle(
             'NewspaperTitle',
             parent=styles['Heading1'],
-            fontName='D-DIN',
+            fontName='D-DIN-Bold',
             fontSize=26,
             leading=22,
             spaceAfter=20
         )
     )
-    flowables.insert(0, title_paragraph)
-
+    flowables.append(title_para)
     
     divider = Paragraph("<hr width='100%'/>", styles['BodyText'])
     flowables.append(divider)
-
+    
+    # 2) If we have a NASA image in content['front_image'], place it as single-column wide
+    front_image_articles = content.get('front_image', [])
+    if front_image_articles:
+        first_img_data = front_image_articles[0]
+        pil_img = first_img_data.get('image')
+        if pil_img:
+            # Scale to single-column width
+            img_w, img_h = pil_img.size
+            scale = column_width / float(img_w)
+            new_w = column_width
+            new_h = img_h * scale
+            
+            # Convert PIL to a bytes buffer
+            img_buffer = io.BytesIO()
+            pil_img.save(img_buffer, format='PNG')
+            img_buffer.seek(0)
+            
+            # Create the ReportLab image with single-column width
+            rl_img = RLImage(img_buffer, width=new_w, height=new_h)
+            
+            flowables.append(rl_img)
+            flowables.append(Spacer(1, 12))  # a bit of space after the image
+            # We do NOT add FrameBreak(), so text flows underneath in the same column
+    
+    # 3) Put the rest of the articles in the columns
     for section, articles in content.items():
-        # Add a section label.
+        if section == 'front_image':
+            continue  # already placed the NASA image
+        
         section_title = f"<b>{section.upper()}</b>"
         flowables.append(Paragraph(section_title, headline_style))
         
-        # article
         for article in articles:
             if 'summary' in article:
                 flowables.append(Paragraph(article['summary'], summary_style))
-            if 'image' in article and article['image']:
-                article_image = article['image']
-                if isinstance(article_image, PILImage.Image):
-                    # Convert the PIL image to a byte stream.
-                    img_buffer = BytesIO()
-                    article_image.save(img_buffer, format='PNG')
-                    img_buffer.seek(0)
-                    rl_img = RLImage(img_buffer, width=column_width/2)
-                else:
-                    rl_img = RLImage(article_image, width=column_width/2)
-                flowables.append(rl_img)
-            
+            # If article has an image, handle similarly
             flowables.append(Spacer(1, 12))
-            
-
-    divider = Paragraph("<hr width='100%'/>", styles['BodyText'])
-    flowables.append(divider)
     
-    try:
-        doc.build(flowables)
-    except Exception as e:
-        raise Exception(f"Error generating PDF: {str(e)}")
-
+    # Final divider
+    flowables.append(Paragraph("<hr width='100%'/>", styles['BodyText']))
+    
+    doc.build(flowables)
