@@ -9,7 +9,7 @@ with NASA image of the day
 
 ---
 
-## Overview
+Overview
 
 Produces a printable 2-column PDF that looks like a simple newspaper article.
 Handles image placement & transformation, summarization using a local Ollama
@@ -20,7 +20,7 @@ elegantly.
 
 ---
 
-## Features
+Features
 
 - Automated content scraping from ScienceDaily and NASA
 - AI summarization using local Llama3.1 model
@@ -31,7 +31,7 @@ elegantly.
 
 ---
 
-## Sources
+Sources
 
 - NASA Image of the Day: Featured space photography
 - NASA Blogs: Latest astronomy and space exploration articles
@@ -39,7 +39,7 @@ elegantly.
 
 ---
 
-## Paper Format
+Paper Format
 
 - Layout: 2-column newspaper style
 - Sections: NASA & SPACE, EVERYDAY SCIENCE
