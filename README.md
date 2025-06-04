@@ -7,6 +7,10 @@ with NASA image of the day
 
 **License**: MIT
 
+<div align="center">
+  <img src="image_processing/newspaper.png" alt="newspaper" style="width: 50%; max-width: 800px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1);">
+</div>
+
 ---
 
 Overview
