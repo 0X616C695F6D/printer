@@ -1,6 +1,7 @@
 import requests
-from bs4 import BeautifulSoup
 import datetime
+from bs4 import BeautifulSoup
+from dateutil import parser
 
 def fetch_latest_engineering_articles():
     """
@@ -64,7 +65,7 @@ def fetch_latest_engineering_articles():
         raw_date = raw_date.split("—")[0].strip()   # => "Mar. 6, 2025"
         
         try:
-            dt = datetime.datetime.strptime(raw_date, "%b. %d, %Y")
+            dt = parser.parse(raw_date)
             iso_date = dt.strftime("%Y-%m-%d")
         except ValueError:
             iso_date = None
